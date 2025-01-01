@@ -1,6 +1,10 @@
 package me.ag2s.tts.services;
 
+import android.os.Build;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -11,14 +15,22 @@ public class TtsActorManger {
     private static final String TAG = "TtsActorManger";
     //单例
 
-    private static TtsActorManger instance;
+    private static final String previewNote = "预览版语音,如果卡住了，杀掉应用重进！！！";
+
+    private static volatile TtsActorManger instance;
 
     public static TtsActorManger getInstance() {
         if (instance == null) {
-            instance = new TtsActorManger();
+            synchronized (TtsActorManger.class) {
+                if (instance == null) {
+                    instance = new TtsActorManger();
+                }
+            }
+
         }
         return instance;
     }
+
 
     private final List<TtsActor> actors;
 
@@ -45,19 +57,41 @@ public class TtsActorManger {
         //zh-TW,曉雨,zh-TW-HsiaoYuNeural,Female
         //zh-TW,雲哲,zh-TW-YunJheNeural,Male
 
-        actors.add(new TtsActor("晓晓", "zh-CN-XiaoxiaoNeural", "zh-CN", true, "晓晓(Xiaoxiao),常规，使用 SSML 提供多种语音风格"));
-        actors.add(new TtsActor("晓悠", "zh-CN-XiaoyouNeural", "zh-CN", true, "晓悠(Xiaoyou),儿童语音，针对讲故事进行了优化"));
-        actors.add(new TtsActor("云扬", "zh-CN-YunyangNeural", "zh-CN", false, "云扬(Yunyang),针对新闻阅读进行了优化，使用 SSML 提供多种语音风格"));
-        actors.add(new TtsActor("云野", "zh-CN-YunyeNeural", "zh-CN", false, "云野(Yunye),针对讲故事进行了优化"));
-        actors.add(new TtsActor("云希", "zh-CN-YunxiNeural", "zh-CN", false, "云希(Yunxi),使用 SSML 提供多种语音风格"));
-        actors.add(new TtsActor("晓涵", "zh-CN-XiaohanNeural", "zh-CN", true, "晓涵(Xiaohan),使用 SSML 提供多种语音风格"));
-        actors.add(new TtsActor("晓墨", "zh-CN-XiaomoNeural", "zh-CN", true, "使用 SSML 提供多种语音风格"));
-        actors.add(new TtsActor("晓睿", "zh-CN-XiaoruiNeural", "zh-CN", true, "使用 SSML 提供多种语音风格"));
-        actors.add(new TtsActor("晓萱", "zh-CN-XiaoxuanNeural", "zh-CN", true, "使用 SSML 提供多种语音风格"));
-        actors.add(new TtsActor("晓辰", "zh-CN-XiaochenNeural", "zh-CN", true, "使用 SSML 提供多种语音风格"));
-        actors.add(new TtsActor("晓秋", "zh-CN-XiaoqiuNeural", "zh-CN", true, "使用 SSML 提供多种语音风格"));
-        actors.add(new TtsActor("晓双", "zh-CN-XiaoshuangNeural", "zh-CN", true, "使用 SSML 提供多种语音风格"));
-        actors.add(new TtsActor("晓颜", "zh-CN-XiaoyanNeural", "zh-CN", true, "使用 SSML 提供多种语音风格"));
+        actors.add(new TtsActor("晓晓", "zh-CN-XiaoxiaoNeural", "zh-CN", true, "活泼、温暖的声音，具有多种场景风格和情感。"));
+        actors.add(new TtsActor("晓伊", "zh-CN-XiaoyiNeural", "zh-CN", true, "" + previewNote));
+        actors.add(new TtsActor("云健", "zh-CN-YunjianNeural", "zh-CN", false, "适合影视和体育解说，" + previewNote));
+        actors.add(new TtsActor("云希", "zh-CN-YunxiNeural", "zh-CN", false, "活泼、阳光的声音，具有丰富的情感，可用于许多对话场景。"));
+        actors.add(new TtsActor("云夏", "zh-CN-YunxiaNeural", "zh-CN", false, "少年年男声，" + previewNote));
+        actors.add(new TtsActor("云扬", "zh-CN-YunyangNeural", "zh-CN", false, "专业、流利的声音，具有多种场景风格。"));
+        actors.add(new TtsActor("晓北辽宁", "zh-CN-liaoning-XiaobeiNeural", "zh-CN", true, "东北大妹子，" + previewNote));
+
+
+        actors.add(new TtsActor("晓悠", "zh-CN-XiaoyouNeural", "zh-CN", true, "天使般的清晰声音，可以应用于许多儿童相关场景。"));
+
+        actors.add(new TtsActor("云野", "zh-CN-YunyeNeural", "zh-CN", false, "成熟、放松的声音，具有多种情感，适合音频书籍。"));
+
+
+
+
+        actors.add(new TtsActor("云希四川", "zh-CN-SC-YunxiNeural", "zh-CN", false, "四川小伙，" + previewNote));
+        actors.add(new TtsActor("云枫", "zh-CN-YunfengNeural", "zh-CN", false, "" + previewNote));
+        actors.add(new TtsActor("云皓", "zh-CN-YunhaoNeural", "zh-CN", false, "" + previewNote));
+
+        actors.add(new TtsActor("云泽", "zh-CN-YunzeNeural", "zh-CN", false, "老年男声，" + previewNote));
+
+
+        actors.add(new TtsActor("晓梦", "zh-CN-XiaomengNeural", "zh-CN", true, "" + previewNote));
+
+        actors.add(new TtsActor("晓甄", "zh-CN-XiaozhenNeural", "zh-CN", true, "" + previewNote));
+
+        actors.add(new TtsActor("晓涵", "zh-CN-XiaohanNeural", "zh-CN", true, "温暖、甜美、富有感情的声音，可用于许多对话场景。"));
+        actors.add(new TtsActor("晓墨", "zh-CN-XiaomoNeural", "zh-CN", true, "清晰、放松的声音，具有丰富的角色扮演和情感，适合音频书籍。"));
+        actors.add(new TtsActor("晓睿", "zh-CN-XiaoruiNeural", "zh-CN", true, "成熟、睿智的声音，具有丰富的情感，适合音频书籍。"));
+        actors.add(new TtsActor("晓萱", "zh-CN-XiaoxuanNeural", "zh-CN", true, "自信、有能力的声音，具有丰富的角色扮演和情感，适合音频书籍。"));
+        actors.add(new TtsActor("晓辰", "zh-CN-XiaochenNeural", "zh-CN", true, "休闲、放松的语音，用于自发性对话和会议听录。"));
+        actors.add(new TtsActor("晓秋", "zh-CN-XiaoqiuNeural", "zh-CN", true, "智能、舒适的语音，适合阅读长内容。"));
+        actors.add(new TtsActor("晓双", "zh-CN-XiaoshuangNeural", "zh-CN", true, "可爱、愉悦的语音，可应用于许多儿童相关场景。"));
+        actors.add(new TtsActor("晓颜", "zh-CN-XiaoyanNeural", "zh-CN", true, "训练有素、舒适的语音，用于客户服务和对话场景。"));
 
 
         actors.add(new TtsActor("曉佳", "zh-HK-HiuGaaiNeural", "zh-HK", true, "曉佳(HiuGaai),粤语女声"));
@@ -484,52 +518,66 @@ public class TtsActorManger {
         Log.d(TAG, actors.size() + "");
 
 
+
     }
 
     public List<TtsActor> sortByLocale(List<TtsActor> list, Locale locale) {
-        Collections.sort(list, (o1, o2) -> {
-            Locale loc1 = o1.getLocale();
-            Locale loc2 = o2.getLocale();
-            boolean b11 = loc1.getISO3Language().equals(locale.getISO3Language());
-            boolean b12 = loc1.getISO3Country().equals(locale.getISO3Country());
-            boolean b13 = loc1.getDisplayVariant(Locale.US).equals(locale.getDisplayVariant(Locale.US));
-            boolean b21 = loc2.getISO3Language().equals(locale.getISO3Language());
-            boolean b22 = loc2.getISO3Country().equals(locale.getISO3Country());
-            boolean b23 = loc2.getDisplayVariant(Locale.US).equals(locale.getDisplayVariant(Locale.US));
-            //语言不同
-            if ((!b11) && (!b21)) {
-                return 0;
-            }
-            //两个都相同
-            if (b11 && b12 && b13 == b21 && b22 && b23) {
-                return 0;
-            }
-            if (b11 && b12 && b13) {
-                return -1;
-            }
-            if (b21 && b22 && b23) {
-                return 1;
-            }
-
-            if ((b11 && b12 == b21 && b22)) {
-                if (b13 == b23) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Collections.sort(list, (o1, o2) -> {
+                Locale loc1 = o1.getLocale();
+                Locale loc2 = o2.getLocale();
+                boolean b11 = loc1.getISO3Language().equals(locale.getISO3Language());
+                boolean b12 = loc1.getISO3Country().equals(locale.getISO3Country());
+                boolean b13 = loc1.getDisplayVariant(Locale.US).equals(locale.getDisplayVariant(Locale.US));
+                boolean b21 = loc2.getISO3Language().equals(locale.getISO3Language());
+                boolean b22 = loc2.getISO3Country().equals(locale.getISO3Country());
+                boolean b23 = loc2.getDisplayVariant(Locale.US).equals(locale.getDisplayVariant(Locale.US));
+                //语言都不同
+                if ((!b11) && (!b21)) {
                     return 0;
                 }
-                if (b13) {
+                //两个都相同
+                if (b11 && b12 && b13 == b21 && b22 && b23) {
+                    return 0;
+                }
+                if (b11 && b12 && b13) {
                     return -1;
-                } else {
+                }
+                if (b21 && b22 && b23) {
                     return 1;
                 }
-            }
-            if (b11 && b12) {
-                return -1;
-            }
-            if (b21 && b22) {
-                return 1;
-            }
-            return 0;
-        });
+
+                if ((b11 && b12 == b21 && b22)) {
+                    if (b13 == b23) {
+                        return 0;
+                    }
+                    if (b13) {
+                        return -1;
+                    } else {
+                        return 1;
+                    }
+                }
+                if (b11 && b12) {
+                    return -1;
+                }
+                if (b21 && b22) {
+                    return 1;
+                }
+                return 0;
+            });
+        }
         return list;
+    }
+
+    @Nullable
+    public TtsActor getByName(@NonNull String name) {
+        for (TtsActor actor : actors) {
+            if (actor.getShortName().equalsIgnoreCase(name) || actor.getName().equalsIgnoreCase(name)) {
+                return actor;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -539,6 +587,7 @@ public class TtsActorManger {
      */
     @SuppressWarnings("unused")
     public synchronized List<TtsActor> getActors() {
+
         return sortByLocale(this.actors, Locale.getDefault());
         //return this.actors;
     }

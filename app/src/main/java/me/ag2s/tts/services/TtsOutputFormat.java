@@ -1,28 +1,41 @@
 package me.ag2s.tts.services;
 
+import androidx.annotation.NonNull;
+
 import org.jetbrains.annotations.NotNull;
 
 public class TtsOutputFormat {
-   public final String name;
-   public final String value;
-   public final int HZ;
-   public final int BitRate;
+    public static final String TAG = "\uD83D\uDC96";
+    @NonNull
+    public final String name;
+    @NonNull
+    public final String value;
+    public final int HZ;
+    public final byte BitRate;
     /**
      * 是否需要解码
      */
-   public boolean needDecode=false;
-   public TtsOutputFormat(String name,int hz,int bitRate){
-       this.name=name;
-       this.value=name;
-       this.HZ=hz;
-       this.BitRate=bitRate;
-   }
-    public TtsOutputFormat(String name,int hz,int bitRate,boolean needDecode){
-       this.name=name;
-       this.value=name;
-        this.HZ=hz;
-        this.BitRate=bitRate;
-       this.needDecode=needDecode;
+    public boolean needDecode = false;
+
+    public TtsOutputFormat(@NonNull String name, int hz, int bitRate) {
+        this.name = name;
+        this.value = name;
+        this.HZ = hz;
+        this.BitRate = (byte) bitRate;
+    }
+
+    public TtsOutputFormat(@NonNull String name, int hz, int bitRate, boolean needDecode) {
+        this.name = name;
+        if (name.contains(TAG)) {
+            this.value = name.substring(TAG.length());
+        } else {
+            this.value = name;
+        }
+
+
+        this.HZ = hz;
+        this.BitRate = (byte) bitRate;
+        this.needDecode = needDecode;
     }
 
     @SuppressWarnings("unused")

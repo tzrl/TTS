@@ -1,10 +1,13 @@
 plugins {
-    id 'com.android.application'
+    alias(libs.plugins.android.application)
+}
+static def releaseTime() {
+    return new Date().format("yyyyMMddHHmm", TimeZone.getTimeZone("GMT+08:00"))
 }
 
 android {
-    compileSdkVersion 31
-    buildToolsVersion "30.0.3"
+    compileSdk  = 35
+    buildToolsVersion = '35.0.0'
     //签名设置
     signingConfigs {
         release {
@@ -12,6 +15,10 @@ android {
             keyPassword '1234567890'
             storeFile file('../public.jks')
             storePassword '1234567890'
+            v1SigningEnabled =true
+            v2SigningEnabled =true
+            enableV3Signing = true
+            enableV4Signing = true
         }
         debug {
             keyAlias 'key'
@@ -23,10 +30,11 @@ android {
 
     defaultConfig {
         applicationId "me.ag2s.tts"
-        minSdkVersion 21
-        targetSdkVersion 31
+        minSdk =21
+        targetSdk =35
         versionCode 1
         versionName "0.2_${releaseTime()}"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
     }
 
@@ -34,84 +42,110 @@ android {
         release {
             minifyEnabled true
             // 启用资源缩减
-            shrinkResources true
+            shrinkResources =true
             // Zipalign优化
             zipAlignEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            signingConfig =signingConfigs.release
         }
         debug {
             minifyEnabled false
             // 启用资源缩减
-            shrinkResources false
+            shrinkResources =false
             // Zipalign优化
             zipAlignEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.debug
+            signingConfig =signingConfigs.debug
         }
     }
 
+    buildFeatures {
+        viewBinding = true
+    }
 
 
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        //coreLibraryDesugaringEnabled true
+        // Sets Java compatibility to Java 11
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
     }
+    dependenciesInfo {
+        includeInApk = true
+        includeInBundle = false
+    }
+    namespace = 'me.ag2s.tts'
 
-    android.applicationVariants.all {
+    android.applicationVariants.configureEach {
         variant ->
-            // 打包完成后复制到的目录
-            // def outputFileDir = "${project.projectDir.absolutePath}/${variant.buildType.name}/${variant.flavorName}/${variant.versionName}"
-            //def today = new Date()
-            def path = ((project.name != "app") ? project.name : rootProject.name.replace(" ", "")) + "_" +
-                    //variant.flavorName + "_" +
-                    variant.buildType.name + "_" +
-                    "v"+variant.versionName + ".apk"
+
+            def name = ((project.name != "app") ? project.name : rootProject.name.replace(" ", "")) + "_" + variant.buildType.name + "_" + "v" + variant.versionName + ".apk"
             variant.outputs.forEach {
 
-                //print(it)
-                //println("buildType=" + it)
-                it.outputFileName = path
+                it.outputFileName = name
             }
-            variant.outputs.all { output ->
-                def buildType = variant.buildType.name
-                println("buildType=" + buildType)
-                if (buildType != "debug") {
-                    //apk默认路径
-                    String defaultOutputApkPath =
-                            variant.getPackageApplicationProvider().get().outputDirectory.getAsFile().get().getPath() +
-                                    File.separator
 
-                    println("defaultOutputApkPath=" + defaultOutputApkPath)
-                    //获取项目根目录路径
-                    def projectRootDir = "$rootDir"
-                    println(projectRootDir)
-                    //在项目根目录创建apk文件夹
-                    def outputFileDir = new File(projectRootDir + File.separator, "release")
-                    println("outputFileDir=" + outputFileDir)
-                    //设置自定义apk生成路径
-                    variant.getPackageApplicationProvider().get().outputDirectory = outputFileDir
-                }
-            }
 
     }
 
 
 }
+
+tasks.configureEach { task ->
+    //新版的AGP7.1.0修改apk输出路径会导致文件找不到而出错（硬编码？？？），暂时禁用这个task
+//    if(task.name.contains("createReleaseApkListingFileRedirect")) {
+//        //task.enabled = false
+//    }
+    if (task.name == 'assembleRelease') {
+        task.finalizedBy syncApkFile
+    }
+}
+
+
+tasks.register('syncMappingFile', Sync) {
+    dependsOn('minifyReleaseWithR8')
+    from "$projectDir/build/outputs/mapping/release"
+    into "$rootDir/release/mapping"
+    exclude("configuration.txt")
+    exclude("resources.txt")
+
+
+}
+
+
+tasks.register('syncApkFile', Sync) {
+    dependsOn syncMappingFile
+    from "$projectDir/build/outputs/apk/release"
+    into "$rootDir/release"
+    exclude("logs/**")
+    exclude("sdk-dependencies/**")
+    //保护下面的不会被删除
+    preserve {
+        include("mapping/**")
+    }
+}
+
+
 
 dependencies {
 
+    //compileOnly "com.android.tools.build:gradle:$agp_version"
 
-    implementation "androidx.recyclerview:recyclerview:1.2.1"
+    //coreLibraryDesugaring('com.android.tools:desugar_jdk_libs:1.1.5')
+
+    implementation libs.androidx.recyclerview
+    //implementation 'org.conscrypt:conscrypt-android:2.5.2'
     //An HTTP & HTTP/2 client for Android and Java applications.
-    //noinspection GradleDependency
-    implementation "com.squareup.okhttp3:okhttp:4.9.3"
-    implementation "com.squareup.okhttp3:okhttp-dnsoverhttps:4.9.3"
+    implementation libs.okhttp
+    implementation libs.okhttp.dnsoverhttps
+    implementation libs.okio
+
+
+    testImplementation libs.junit
+
+    androidTestImplementation libs.androidx.junit
+    androidTestImplementation libs.androidx.espresso.core
+
 }
 
-static def releaseTime() {
-
-    return new Date().format("yyyyMMddHHmm", TimeZone.getTimeZone("GMT+08:00"))
-
-}

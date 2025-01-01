@@ -1,13 +1,13 @@
 package me.ag2s.tts;
 
 import static me.ag2s.tts.services.Constants.CUSTOM_VOICE;
+import static me.ag2s.tts.services.Constants.USE_PREVIEW;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -20,10 +20,7 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.Button;
 import android.widget.SeekBar;
-import android.widget.Switch;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -37,30 +34,29 @@ import org.json.JSONObject;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import me.ag2s.tts.adapters.TtsActorAdapter;
 import me.ag2s.tts.adapters.TtsStyleAdapter;
+import me.ag2s.tts.data.TtsActorManger;
+import me.ag2s.tts.databinding.ActivityMainBinding;
 import me.ag2s.tts.services.Constants;
-import me.ag2s.tts.services.TtsActorManger;
 import me.ag2s.tts.services.TtsDictManger;
 import me.ag2s.tts.services.TtsFormatManger;
 import me.ag2s.tts.services.TtsOutputFormat;
 import me.ag2s.tts.services.TtsStyle;
 import me.ag2s.tts.services.TtsStyleManger;
 import me.ag2s.tts.services.TtsVoiceSample;
-import me.ag2s.tts.utils.ApkInstall;
 import me.ag2s.tts.utils.HttpTool;
 
 
-public class MainActivity extends Activity implements View.OnClickListener {
+public class MainActivity extends Activity implements View.OnClickListener, SeekBar.OnSeekBarChangeListener {
     private static final String TAG = "CheckVoiceData";
     private static final AtomicInteger mNextRequestId = new AtomicInteger(0);
-    TextView tv_styleDegree;
-    public SharedPreferences sharedPreferences;
 
-    private Button btn_IgnoringBatteryOptimizations;
+    boolean connected = false;
+    ActivityMainBinding binding;
+
     TextToSpeech textToSpeech;
     int styleDegree;
     int volumeValue;
@@ -69,155 +65,151 @@ public class MainActivity extends Activity implements View.OnClickListener {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        sharedPreferences = getApplicationContext().getSharedPreferences("TTS", Context.MODE_PRIVATE);
-        setContentView(R.layout.activity_main);
-        Button btn_set_tts = findViewById(R.id.btn_set_tts);
-        btn_IgnoringBatteryOptimizations = findViewById(R.id.btn_kill_battery);
-        btn_set_tts.setOnClickListener(this);
-        btn_IgnoringBatteryOptimizations.setOnClickListener(this);
-        RecyclerView gv = findViewById(R.id.gv);
-        Switch aSwitch = findViewById(R.id.switch_use_custom_language);
-        Switch bSwitch = findViewById(R.id.switch_use_auto_retry);
-        RecyclerView rv_styles = findViewById(R.id.rv_voice_styles);
-
-        SeekBar seekBar = findViewById(R.id.tts_style_degree);
-        SeekBar volumeBar = findViewById(R.id.tts_voice_volume);
-
-        tv_styleDegree = findViewById(R.id.tts_style_degree_value);
-        int styleIndex = sharedPreferences.getInt(Constants.VOICE_STYLE_INDEX, 0);
-
-        styleDegree = sharedPreferences.getInt(Constants.VOICE_STYLE_DEGREE, 100);
-        volumeValue = sharedPreferences.getInt(Constants.VOICE_VOLUME, 100);
-        tv_styleDegree.setText("强度:" + styleDegree + "音量:" + volumeValue);
-        seekBar.setProgress(styleDegree);
-        volumeBar.setProgress(volumeValue);
-        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @SuppressLint("SetTextI18n")
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                styleDegree = progress;
-                tv_styleDegree.setText("强度:" + styleDegree + "音量:" + volumeValue);
-                SharedPreferences.Editor editor = sharedPreferences.edit();
-                editor.putInt(Constants.VOICE_STYLE_DEGREE, progress);
-                editor.apply();
-
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-
-            }
-        });
-        volumeBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                volumeValue = progress;
-                tv_styleDegree.setText("强度:" + styleDegree + "音量:" + volumeValue);
-                SharedPreferences.Editor editor = sharedPreferences.edit();
-                editor.putInt(Constants.VOICE_VOLUME, progress);
-                editor.apply();
-
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-
-            }
-        });
+        binding = ActivityMainBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
 
 
-        List<TtsStyle> styles = TtsStyleManger.getInstance().getStyles();
-        TtsStyleAdapter rvadapter = new TtsStyleAdapter(styles);
-        rvadapter.setSelect(styleIndex);
-        rv_styles.setAdapter(rvadapter);
+        connectToText2Speech();
+
+
+        binding.btnSetTts.setOnClickListener(this);
+        binding.btnKillBattery.setOnClickListener(this);
+        binding.ttsStyleDegreeAdd.setOnClickListener(this);
+        binding.ttsStyleDegreeReduce.setOnClickListener(this);
+        binding.ttsVoiceVolumeAdd.setOnClickListener(this);
+        binding.ttsVoiceVolumeReduce.setOnClickListener(this);
+
+        int styleIndex = APP.getInt(Constants.VOICE_STYLE_INDEX, 0);//sharedPreferences.getInt(Constants.VOICE_STYLE_INDEX, 0);
+
+
+        styleDegree = APP.getInt(Constants.VOICE_STYLE_DEGREE, 100);//sharedPreferences.getInt(Constants.VOICE_STYLE_DEGREE, 100);
+        volumeValue = APP.getInt(Constants.VOICE_VOLUME, 100);//sharedPreferences.getInt(Constants.VOICE_VOLUME, 100);
+
+        updateView();
+        binding.ttsStyleDegree.setProgress(styleDegree);
+        binding.ttsVoiceVolume.setProgress(volumeValue);
+        binding.ttsStyleDegree.setOnSeekBarChangeListener(this);
+        binding.ttsVoiceVolume.setOnSeekBarChangeListener(this);
+
+        TtsStyleAdapter ttsStyleAdapter = new TtsStyleAdapter(TtsStyleManger.getInstance().getStyles());
+        ttsStyleAdapter.setSelect(styleIndex);
+        binding.rvVoiceStyles.setAdapter(ttsStyleAdapter);
         LinearLayoutManager linearLayoutManager = new LinearLayoutManager(this, RecyclerView.HORIZONTAL, false);
-        rv_styles.setLayoutManager(linearLayoutManager);
+        binding.rvVoiceStyles.setLayoutManager(linearLayoutManager);
         linearLayoutManager.scrollToPositionWithOffset(styleIndex, 0);
-        rvadapter.setItemClickListener((position, item) -> {
-            SharedPreferences.Editor editor = sharedPreferences.edit();
-            editor.putString(Constants.VOICE_STYLE, item.value);
-            editor.putInt(Constants.VOICE_STYLE_INDEX, position);
-            editor.apply();
-        });
+        ttsStyleAdapter.setItemClickListener((position, item) -> APP.putInt(Constants.VOICE_STYLE_INDEX, position));
 
-        boolean isFChecked = sharedPreferences.getBoolean(Constants.USE_CUSTOM_VOICE, true);
-        aSwitch.setChecked(isFChecked);
-        //gv.setVisibility(isFChecked ? View.VISIBLE : View.INVISIBLE);
-        aSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            SharedPreferences.Editor editor = sharedPreferences.edit();
-            editor.putBoolean(Constants.USE_CUSTOM_VOICE, isChecked);
-            //gv.setVisibility(isChecked ? View.VISIBLE : View.INVISIBLE);
-            editor.apply();
-        });
-
-        boolean useAutoRetry = sharedPreferences.getBoolean(Constants.USE_AUTO_RETRY, false);
-        bSwitch.setChecked(useAutoRetry);
-        bSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            SharedPreferences.Editor editor = sharedPreferences.edit();
-            editor.putBoolean(Constants.USE_AUTO_RETRY, isChecked);
-            editor.apply();
-        });
+        //boolean useCustomVoice = APP.getBoolean(Constants.USE_CUSTOM_VOICE, true);//sharedPreferences.getBoolean(Constants.USE_CUSTOM_VOICE, true);
+        binding.switchUseCustomVoice.setChecked(APP.getBoolean(Constants.USE_CUSTOM_VOICE, true));
+        binding.switchUseCustomVoice.setOnCheckedChangeListener((buttonView, isChecked) -> APP.putBoolean(Constants.USE_CUSTOM_VOICE, isChecked));
 
 
-        textToSpeech = new TextToSpeech(MainActivity.this, status -> {
-            // TODO Auto-generated method stub
-            if (status == TextToSpeech.SUCCESS) {
-                int result = textToSpeech.setLanguage(Locale.CHINA);
-                if (result != TextToSpeech.LANG_MISSING_DATA
-                        && result != TextToSpeech.LANG_NOT_SUPPORTED) {
-                    if (!textToSpeech.isSpeaking()) {
-                        textToSpeech.speak("初始化成功。", TextToSpeech.QUEUE_FLUSH, null, null);
-                    }
-                }
-            }
-        }, this.getPackageName());
+        binding.switchUseSplitSentence.setChecked(APP.getBoolean(Constants.SPLIT_SENTENCE, false));
+        binding.switchUseSplitSentence.setOnCheckedChangeListener((buttonView, isChecked) -> APP.putBoolean(Constants.SPLIT_SENTENCE, isChecked));
 
 
-        TtsActorAdapter adapter = new TtsActorAdapter(TtsActorManger.getInstance().getActors());
-        gv.setAdapter(adapter);
-        gv.setLayoutManager(new GridLayoutManager(this, 3));
-        adapter.setSelect(gv, sharedPreferences.getInt(Constants.CUSTOM_VOICE_INDEX, 0));
-        adapter.setItemClickListener((position, item) -> {
-            boolean origin = sharedPreferences.getBoolean(Constants.USE_CUSTOM_VOICE, false);
+        binding.switchUseDict.setChecked(APP.getBoolean(Constants.USE_DICT, false));
+        binding.switchUseDict.setOnCheckedChangeListener((buttonView, isChecked) -> APP.putBoolean(Constants.USE_DICT, isChecked));
+        APP.putBoolean(USE_PREVIEW, false);
+        showStyleView(APP.getBoolean(Constants.USE_PREVIEW, false));
+//        binding.switchUsePreview.setChecked(APP.getBoolean(Constants.USE_PREVIEW, false));
+//        binding.switchUsePreview.setOnCheckedChangeListener(((buttonView, isChecked) -> {
+//            showStyleView(isChecked);
+//            APP.putBoolean(USE_PREVIEW, isChecked);
+//        }));
+
+
+        TtsActorAdapter actorAdapter = new TtsActorAdapter(TtsActorManger.getInstance().getActors());
+        binding.rvVoiceActors.setAdapter(actorAdapter);
+        binding.rvVoiceActors.setVisibility(View.VISIBLE);
+        binding.rvVoiceActors.setLayoutManager(new GridLayoutManager(this, 3));
+        actorAdapter.setSelect(binding.rvVoiceActors, APP.getInt(Constants.CUSTOM_VOICE_INDEX, 0));
+        actorAdapter.setItemClickListener((position, item) -> {
+            boolean origin = APP.getBoolean(Constants.USE_CUSTOM_VOICE, true);
 
             if (origin) {
-                SharedPreferences.Editor editor = sharedPreferences.edit();
-                editor.putString(CUSTOM_VOICE, item.getShortName());
-                editor.putInt(Constants.CUSTOM_VOICE_INDEX, position);
-                //adapter.setSelect(gv, position);
-                editor.apply();
+
+                APP.putString(CUSTOM_VOICE, item.getShortName());
+                APP.putInt(Constants.CUSTOM_VOICE_INDEX, position);
+
             }
 
             Locale locale = item.getLocale();
 
-            if (!textToSpeech.isSpeaking()) {
+
+            if (textToSpeech != null && !textToSpeech.isSpeaking()) {
+                connectToText2Speech();
                 Bundle bundle = new Bundle();
+                bundle.putString(CUSTOM_VOICE, item.getShortName());
+                bundle.putInt(Constants.CUSTOM_VOICE_INDEX, position);
                 bundle.putString("voiceName", item.getShortName());
                 bundle.putString("language", locale.getISO3Language());
                 bundle.putString("country", locale.getISO3Country());
                 bundle.putString("variant", item.getGender() ? "Female" : "Male");
-                bundle.putString("utteranceId", "Sample");
+                bundle.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "Sample");
                 textToSpeech.speak(TtsVoiceSample.getByLocate(this, locale), TextToSpeech.QUEUE_FLUSH, bundle, MainActivity.class.getName() + mNextRequestId.getAndIncrement());
             } else {
-                Toast.makeText(MainActivity.this, "" + item.getShortName(), Toast.LENGTH_SHORT).show();
+                if (textToSpeech == null) {
+                    connectToText2Speech();
+                }
+                Toast.makeText(MainActivity.this, item.getShortName(), Toast.LENGTH_SHORT).show();
             }
 
         });
-        if (sharedPreferences.getBoolean(Constants.USE_AUTO_UPDATE, true)) {
+
+        Toast.makeText(this, "选择预览版语音时,如果卡住了，杀掉应用重进！！！", Toast.LENGTH_LONG).show();
+
+
+        if (APP.getBoolean(Constants.USE_AUTO_UPDATE, true)) {
             checkUpdate();
         }
 
 
+    }
+
+
+    /**
+     * 连接Text2Speech
+     */
+    private void connectToText2Speech() {
+        if (textToSpeech == null || textToSpeech.speak("", TextToSpeech.QUEUE_FLUSH, null, null) != TextToSpeech.SUCCESS) {
+            textToSpeech = new TextToSpeech(MainActivity.this, status -> {
+
+                if (status == TextToSpeech.SUCCESS) {
+                    int result = textToSpeech.setLanguage(Locale.CHINA);
+                    if (result != TextToSpeech.LANG_MISSING_DATA
+                            && result != TextToSpeech.LANG_NOT_SUPPORTED) {
+                        connected = true;
+                        if (!textToSpeech.isSpeaking()) {
+                            textToSpeech.speak("初始化成功。", TextToSpeech.QUEUE_FLUSH, null, null);
+                        }
+                    }
+                }
+            }, this.getPackageName());
+        }
+
+    }
+
+
+    private void showStyleView(boolean show) {
+        if (show) {
+            binding.rvVoiceStyles.setVisibility(View.VISIBLE);
+            binding.ttsStyleDegreeParent.setVisibility(View.VISIBLE);
+        } else {
+            binding.rvVoiceStyles.setVisibility(View.GONE);
+            binding.ttsStyleDegreeParent.setVisibility(View.GONE);
+        }
+    }
+
+
+    @SuppressLint("SetTextI18n")
+    private void updateView() {
+        APP.putInt(Constants.VOICE_STYLE_DEGREE, styleDegree);
+        APP.putInt(Constants.VOICE_VOLUME, volumeValue);
+        binding.ttsStyleDegree.setProgress(styleDegree);
+
+        String format = String.format(Locale.US, "强度:%01d.%02d 音量:%03d", styleDegree / TtsStyle.DEFAULT_DEGREE, styleDegree % TtsStyle.DEFAULT_DEGREE, volumeValue);
+        binding.ttsStyleDegreeValue.setText(format);
     }
 
     @RequiresApi(api = Build.VERSION_CODES.M)
@@ -230,27 +222,37 @@ public class MainActivity extends Activity implements View.OnClickListener {
             PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
             boolean i = powerManager.isIgnoringBatteryOptimizations(this.getPackageName());
             if (i) {
-                btn_IgnoringBatteryOptimizations.setVisibility(View.GONE);
+                binding.btnKillBattery.setVisibility(View.GONE);
             } else {
-                btn_IgnoringBatteryOptimizations.setVisibility(View.VISIBLE);
+                binding.btnKillBattery.setVisibility(View.VISIBLE);
             }
         }
 
 
     }
 
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (textToSpeech != null) {
+            textToSpeech.stop();
+            textToSpeech.shutdown();
+        }
+    }
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        menu.add(Menu.NONE, Menu.FIRST + 1, 0, R.string.check_update);
-        menu.add(Menu.NONE, Menu.FIRST + 2, 0, R.string.battery_optimizations);
-        menu.add(Menu.NONE, Menu.FIRST + 3, 0, R.string.update_dic);
+        menu.add(Menu.NONE, Menu.FIRST + 1, Menu.NONE, R.string.check_update);
+        menu.add(Menu.NONE, Menu.FIRST + 2, Menu.NONE, R.string.battery_optimizations);
+        menu.add(Menu.NONE, Menu.FIRST + 3, Menu.NONE, R.string.update_dic);
 
         Menu aa = menu.addSubMenu(100, 100, 1, R.string.audio_format);
 
 
         List<TtsOutputFormat> formats = TtsFormatManger.getInstance().getFormats();
         for (int i = 0; i < formats.size(); i++) {
-            aa.add(100, 1000 + i, 0, formats.get(i).name);
+            aa.add(100, 1000 + i, Menu.NONE, formats.get(i).name);
         }
 
         MenuItem menuItem = menu.findItem(100);
@@ -262,15 +264,14 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
-        menu.findItem(sharedPreferences.getInt(Constants.AUDIO_FORMAT_INDEX, 0) + 1000).setChecked(true);
+        menu.findItem(APP.getInt(Constants.AUDIO_FORMAT_INDEX, 0) + 1000).setChecked(true);
         return super.onPrepareOptionsMenu(menu);
     }
 
     @SuppressLint("NonConstantResourceId")
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        int aindex = sharedPreferences.getInt(Constants.AUDIO_FORMAT_INDEX, 0);
-        SharedPreferences.Editor editor = sharedPreferences.edit();
+        int i = APP.getInt(Constants.AUDIO_FORMAT_INDEX, 0);
         switch (item.getItemId()) {
             case Menu.FIRST + 1:
                 checkUpdate();
@@ -284,11 +285,10 @@ public class MainActivity extends Activity implements View.OnClickListener {
             default:
                 if (item.getGroupId() == 100 && item.getItemId() >= 1000 && item.getItemId() < 1100) {
                     int index = item.getItemId() - 1000;
-                    boolean b = index == aindex;
+                    boolean b = index == i;
                     item.setChecked(b);
                     Toast.makeText(this, TtsFormatManger.getInstance().getFormat(index).value, Toast.LENGTH_LONG).show();
-                    editor.putInt(Constants.AUDIO_FORMAT_INDEX, index);
-                    editor.apply();
+                    APP.putInt(Constants.AUDIO_FORMAT_INDEX, index);
                 } else {
                     return super.onOptionsItemSelected(item);
                 }
@@ -299,89 +299,64 @@ public class MainActivity extends Activity implements View.OnClickListener {
     }
 
     private void checkUpdate() {
-        new Thread(() -> {
-
+        //getToken();
+        HttpTool.executorService.submit(() -> {
             try {
-                String msg=HttpTool.httpGet("https://purge.jsdelivr.net/gh/ag2s20150909/TTS@master/release/output-metadata.json");
-                Log.e("UPDATE",msg);
-                String url="https://cdn.jsdelivr.net/gh/ag2s20150909/TTS@master/release/output-metadata.json";
-                JSONObject json = Objects.requireNonNull(new JSONObject(HttpTool.httpGet(url)).optJSONArray("elements")).optJSONObject(0);
-                String fileName = json.optString("outputFile");
-                BigDecimal versionName = new BigDecimal(json.optString("versionName").split("_")[1].trim());
+                String url = "https://api.github.com/repos/ag2s20150909/tts/releases/latest";
+                String s = HttpTool.httpGet(url);
+                //Log.e(TAG, s);
+                JSONObject json = new JSONObject(s);
+                String tag = json.getString("tag_name");
+                String downloadUrl = json.getJSONArray("assets").getJSONObject(0).getString("browser_download_url");
+                String body = json.getString("body");
+                Log.e(TAG, tag);
+
+
+                BigDecimal versionName = new BigDecimal(tag.split("_")[1].trim());
                 PackageManager pm = MainActivity.this.getPackageManager();
                 PackageInfo pi = pm.getPackageInfo(MainActivity.this.getPackageName(), 0);
                 BigDecimal appVersionName = new BigDecimal(pi.versionName.split("_")[1].trim());
-                Log.d(TAG, appVersionName.toString() + "\n" + versionName.toString());
+                Log.d(TAG, appVersionName + "\n" + versionName);
                 if (appVersionName.compareTo(versionName) < 0) {
                     Log.d(TAG, "需要更新。");
-                    downLoadAndInstall(fileName);
+                    downLoadAndInstall(body, downloadUrl, tag);
                 } else {
-                    //downLoadAndInstall(fileName);
+                    //downLoadAndInstall(body,downloadUrl,tag);
                     Log.d(TAG, "不需要更新。");
                     runOnUiThread(() -> Toast.makeText(MainActivity.this, "不需要更新", Toast.LENGTH_LONG).show());
                 }
             } catch (Exception e) {
+                Log.e(TAG, "", e);
                 e.printStackTrace();
             }
-        }).start();
+        });
     }
 
-    private void downLoadAndInstall(String appName) {
+    private void downLoadAndInstall(String body, String downloadUrl, String tag) {
         try {
-            //https://cdn.staticaly.com/gh/ag2s20150909/TTS/master/release/TTS_release_v0.2_202112251858.apk
-            String url = "https://cdn.jsdelivr.net/gh/ag2s20150909/TTS@master/release/" + appName;
-            //String url="https://cdn.staticaly.com/gh/ag2s20150909/TTS/master/release/"+appName;
 
             runOnUiThread(() -> new AlertDialog.Builder(MainActivity.this)
                     .setTitle("有新版本")
-                    .setMessage("发现新版本:\n" + appName + "\n如需更新，点击确定，将跳转到浏览器下载。如不想更新，点击取消，将不再自动检查更新，直到你清除应用数据。你可以到右上角菜单手动检查更新。")
+                    .setMessage("发现新版本:" + tag + "\n" + body)
                     .setPositiveButton("确定", (dialog, which) -> {
-                        HttpTool.downLoadFile(url, getExternalCacheDir().getAbsolutePath() + "/" + appName, new HttpTool.DownloadCallBack() {
-                            @Override
-                            public void onSucces(String path) {
-                                new ApkInstall(getApplicationContext()).installAPK(path);
-                            }
-
-                            @Override
-                            public void onError(String err) {
                                 Intent intent = new Intent(Intent.ACTION_VIEW);
-                                intent.setData(Uri.parse(url));
+                                intent.setData(Uri.parse(downloadUrl));
                                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                                 startActivity(intent);
                             }
-                        });
 
-
-                    })
-                    .setNegativeButton("取消", (dialog, which) -> {
-                        SharedPreferences.Editor editor = sharedPreferences.edit();
-                        editor.putBoolean(Constants.USE_AUTO_UPDATE, false);
-                        editor.apply();
-                    })
+                    )
+                    .setNegativeButton("取消", (dialog, which) -> APP.putBoolean(Constants.USE_AUTO_UPDATE, false))
                     .create().show());
         } catch (Exception ignored) {
         }
     }
 
-//    private void QueryApk() {
-//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-//            if (!getPackageManager().canRequestPackageInstalls()) {
-//                startActivityForResult(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
-//                        .setData(Uri.parse(String.format("package:%s", getPackageName()))), 1);
-//            }
-//        }
-//
-//        //Storage Permission
-//
-//        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-//            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE,Manifest.permission.READ_EXTERNAL_STORAGE}, 1);
-//        }
-//
-//        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-//            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
-//        }
-//    }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+    }
 
     private void setTTS() {
         Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
@@ -408,18 +383,55 @@ public class MainActivity extends Activity implements View.OnClickListener {
     }
 
 
-    @SuppressLint("NonConstantResourceId")
     @Override
     public void onClick(View v) {
-        switch (v.getId()) {
-            case R.id.btn_set_tts:
-                setTTS();
-                break;
-            case R.id.btn_kill_battery:
-                killBATTERY();
-                break;
+        int id = v.getId();
+        if (id == binding.btnSetTts.getId()) {
+            setTTS();
+        } else if (id == binding.btnKillBattery.getId()) {
+            killBATTERY();
+        } else if (id == binding.ttsStyleDegreeAdd.getId()) {
+            if (styleDegree < 200) {
+                styleDegree++;
+                updateView();
+            }
+        } else if (id == binding.ttsStyleDegreeReduce.getId()) {
+            if (styleDegree > 1) {
+                styleDegree--;
+                updateView();
+            }
+        } else if (id == binding.ttsVoiceVolumeReduce.getId()) {
+            if (volumeValue > 1) {
+                volumeValue--;
+                updateView();
+            }
+        } else if (id == binding.ttsVoiceVolumeAdd.getId()) {
+            if (volumeValue < 100) {
+                volumeValue++;
+                updateView();
+            }
         }
+
     }
 
 
+    @Override
+    public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+        int id = seekBar.getId();
+        if (id == binding.ttsStyleDegree.getId()) {
+            styleDegree = progress;
+            updateView();
+        } else if (id == binding.ttsVoiceVolume.getId()) {
+            volumeValue = progress;
+            updateView();
+        }
+    }
+
+    @Override
+    public void onStartTrackingTouch(SeekBar seekBar) {
+    }
+
+    @Override
+    public void onStopTrackingTouch(SeekBar seekBar) {
+    }
 }

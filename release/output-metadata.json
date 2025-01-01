@@ -12,9 +12,26 @@
       "filters": [],
       "attributes": [],
       "versionCode": 1,
-      "versionName": "0.2_202201191622",
-      "outputFile": "TTS_release_v0.2_202201191622.apk"
+      "versionName": "0.2_202501012255",
+      "outputFile": "TTS_release_v0.2_202501012255.apk"
     }
   ],
-  "elementType": "File"
+  "elementType": "File",
+  "baselineProfiles": [
+    {
+      "minApi": 28,
+      "maxApi": 30,
+      "baselineProfiles": [
+        "baselineProfiles/1/TTS_release_v0.2_202501012255.dm"
+      ]
+    },
+    {
+      "minApi": 31,
+      "maxApi": 2147483647,
+      "baselineProfiles": [
+        "baselineProfiles/0/TTS_release_v0.2_202501012255.dm"
+      ]
+    }
+  ],
+  "minSdkVersionForDexing": 21
 }

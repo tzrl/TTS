@@ -3,14 +3,14 @@ package me.ag2s.tts.utils;
 import android.media.MediaDataSource;
 import android.os.Build;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 
 @RequiresApi(api = Build.VERSION_CODES.M)
 public class ByteArrayMediaDataSource extends MediaDataSource {
-
     private byte[] data;
 
-    public ByteArrayMediaDataSource(byte[] data) {
+    public ByteArrayMediaDataSource(@NonNull byte[] data) {
         this.data = data;
     }
 
